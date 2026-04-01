@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Literal
 
 from pydantic import BaseModel
@@ -28,3 +30,29 @@ class SystemStatus(BaseModel):
     state: Literal["available", "full", "offline"]
     slots: list[SlotStatus]
     last_updated: str
+    notification_enabled: bool = False
+
+
+class WeekdayStat(BaseModel):
+    weekday: int
+    label: str
+    avg_free_slots: float
+    availability_rate: float
+    sample_count: int
+
+
+class HourlyStat(BaseModel):
+    hour: int
+    label: str
+    avg_free_slots: float
+    availability_rate: float
+    sample_count: int
+
+
+class AnalyticsSummary(BaseModel):
+    generated_at: str
+    total_records: int
+    weekday_stats: list[WeekdayStat]
+    hourly_stats: list[HourlyStat]
+    best_weekdays: list[str]
+    busiest_weekdays: list[str]

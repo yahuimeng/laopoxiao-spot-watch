@@ -2,159 +2,100 @@
 
 这是一个面向老小区固定停车位场景的监控项目，用摄像头实时判断楼下停车位是否有空位，并通过网页或手机浏览器展示当前状态。
 
-## 目标
+## 新增能力
 
-- 接入一个固定视角摄像头
-- 识别画面中预先标定的停车位是否空闲
+- 检测到空位时推送微信消息
+- 持续记录车位快照到本地 SQLite 历史库
+- 自动生成最近 30 天的周几趋势和高峰时段统计
+- 为后续补充月度报告、到家前提醒、误判回放留出接口
+
+## 当前能力
+
+- 接入固定视角摄像头或 RTSP 监控流
+- 识别预先标定的停车位是否空闲
 - 实时展示空闲车位数量和每个车位状态
-- 后续支持消息提醒和历史统计
-
-## 为什么先做固定车位检测
-
-你的场景是“卧室楼下固定一排停车位”，摄像头位置基本固定，所以第一版不必先做复杂的目标跟踪或车牌识别。我们只需要：
-
-1. 手工框选每个停车位区域
-2. 分析该区域是否被车辆占用
-3. 持续输出状态
-
-这样开发更快，稳定性也更高。
+- 提供截图接口、趋势接口、状态接口
 
 ## 技术架构
 
 ### 后端
 
 - Python 3.13
-- FastAPI: 提供状态接口和视频流接口
+- FastAPI: 状态接口、统计接口和静态页面托管
 - OpenCV: 读取摄像头和图像处理
-- NumPy: 图像计算
+- SQLite: 本地持久化快照和趋势分析
 - Uvicorn: 本地开发服务器
 
 ### 前端
 
 - 原生 HTML + CSS + JavaScript
-- 通过 `/api/status` 轮询获取实时状态
-- 通过 `/api/frame` 查看当前画面快照
-
-### 配置
-
-- `config/parking_slots.json`: 停车位区域配置
-- `config/settings.json`: 摄像头和判定阈值配置
-
-## 项目结构
-
-```text
-laopoxiao-spot-watch/
-├── app/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── camera.py
-│   ├── detector.py
-│   ├── models.py
-│   └── services/
-│       ├── __init__.py
-│       └── parking_service.py
-├── config/
-│   ├── parking_slots.example.json
-│   └── settings.example.json
-├── web/
-│   ├── index.html
-│   ├── app.js
-│   └── styles.css
-├── scripts/
-│   └── bootstrap.sh
-├── .vscode/
-│   ├── launch.json
-│   ├── settings.json
-│   └── tasks.json
-├── requirements.txt
-└── README.md
-```
+- 轮询 `/api/status` 和 `/api/analytics`
+- 实时展示通知状态、车位状态和历史趋势
 
 ## 核心流程
 
-1. 摄像头持续采集画面
-2. 系统读取配置好的停车位多边形区域
-3. 对每个区域做占用检测
-4. 生成每个车位的 `occupied/free` 状态
-5. 后端对外提供 JSON 状态接口
-6. 前端页面实时展示状态
+1. 后台线程持续读取摄像头画面
+2. 系统对每个停车位区域做占用检测
+3. 将快照写入 `data/parking_history.sqlite3`
+4. 从“无空位”切换到“有空位”时触发微信提醒
+5. 页面展示实时状态和最近 30 天趋势摘要
 
-## 首版检测思路
+## 微信提醒支持
 
-第一版用轻量规则法，便于快速验证：
+当前支持两种方式，配置任意一种即可：
 
-- 把每个车位裁剪出来
-- 转灰度并做模糊、边缘或纹理分析
-- 结合亮度变化、边缘密度判断该区域是否被车辆占用
-- 用多帧平滑避免闪烁误判
+- 企业微信机器人 Webhook：`wechat_webhook_url`
+- Server酱：`serverchan_sendkey`
 
-如果后续发现环境变化大，例如夜晚、雨天、树影干扰明显，再升级为：
+配置文件在 [config/settings.json](/Users/olaf.meng/develop/code/AIProjects/laopoxiao-spot-watch/config/settings.json)。
 
-- YOLO 检测车辆后判断与车位区域是否重叠
-- 或者训练一个“车位空闲/占用”二分类模型
+示例：
 
-## 适合你的实施路径
+```json
+{
+  "camera_source": 0,
+  "occupancy_threshold": 0.12,
+  "refresh_interval_ms": 3000,
+  "history_db_path": "data/parking_history.sqlite3",
+  "wechat_webhook_url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=your-key",
+  "serverchan_sendkey": "",
+  "notification_cooldown_seconds": 1800
+}
+```
 
-### 第 1 阶段
+## 趋势统计说明
 
-- 确定摄像头位置
-- 获取稳定画面
-- 手工标注停车位区域
-- 跑通本地页面，显示有无空位
+系统会记录每次检测的空位数，当前提供：
 
-### 第 2 阶段
+- 最近 30 天每周趋势
+- 最近 30 天更容易有空位的小时段
+- 每个时间段的有空位概率
 
-- 优化白天/夜间识别
-- 增加截图留档
-- 增加 Telegram、企业微信或邮件提醒
+这能回答你关心的典型问题，例如：
 
-### 第 3 阶段
+- 周几更容易停车
+- 哪个时段最紧张
+- 晚上几点更容易等到空位
 
-- 记录空位变化历史
-- 做“预计何时有车位”的统计
-- 增加手机端推送
-
-## 如何运行
-
-### 1. 创建虚拟环境
+## 启动方式
 
 ```bash
-python3 -m venv .venv
+cd /Users/olaf.meng/develop/code/AIProjects/laopoxiao-spot-watch
+bash scripts/bootstrap.sh
 source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. 复制配置文件
-
-```bash
-cp config/settings.example.json config/settings.json
-cp config/parking_slots.example.json config/parking_slots.json
-```
-
-### 3. 修改摄像头地址
-
-编辑 `config/settings.json` 中的 `camera_source`：
-
-- 本地 USB 摄像头可填 `0`
-- 网络摄像头可填 RTSP 地址，例如 `rtsp://user:password@192.168.1.20:554/stream1`
-
-### 4. 启动服务
-
-```bash
 uvicorn app.main:app --reload
 ```
 
-### 5. 打开页面
+打开：
 
-浏览器访问：
+- http://127.0.0.1:8000
+- `GET /api/status`
+- `GET /api/analytics?days=30`
 
-```text
-http://127.0.0.1:8000
-```
+## 下一步建议
 
-## 下一步怎么把它真正做起来
-
-你后面只要把一张真实监控截图给我，我就可以继续帮你做下面两件事：
-
-1. 帮你设计 `parking_slots.json` 的标注方式
-2. 把检测逻辑从示例规则调到更适合你楼下画面的版本
+- 增加车位标注工具，直接在截图上点选多边形
+- 引入 YOLO 做夜间和树影场景优化
+- 做“回家前 15 分钟空位提醒”
+- 增加周报和月报导出
+- 对微信提醒加入截图和直达页面链接

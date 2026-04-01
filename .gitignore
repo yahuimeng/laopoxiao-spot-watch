@@ -12,3 +12,5 @@ htmlcov/
 config/settings.local.json
 
 .vscode/
+
+data/*.sqlite3
