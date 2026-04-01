@@ -11,4 +11,4 @@ htmlcov/
 
 config/settings.local.json
 
-.vscode/*.log
+.vscode/

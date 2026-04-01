@@ -1,4 +1,4 @@
-# Residential Parking Monitor
+# 老破小车位哨兵
 
 这是一个面向老小区固定停车位场景的监控项目，用摄像头实时判断楼下停车位是否有空位，并通过网页或手机浏览器展示当前状态。
 
@@ -43,7 +43,7 @@
 ## 项目结构
 
 ```text
-residential-parking-monitor/
+laopoxiao-spot-watch/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py

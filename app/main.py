@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.services.parking_service import ParkingMonitorService
 
-app = FastAPI(title="Parking Monitor")
+app = FastAPI(title="老破小车位哨兵")
 service = ParkingMonitorService()
 web_dir = Path("web")
 
