@@ -1,0 +1,1 @@
+"""Parking monitor application package."""
